@@ -1,0 +1,31 @@
+name: AutoClaim Python tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+
+      - name: Use Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies from lockfile
+        run: uv sync --locked
+
+      - name: Run 82 offline tests
+        run: uv run --no-sync python -m pytest -q

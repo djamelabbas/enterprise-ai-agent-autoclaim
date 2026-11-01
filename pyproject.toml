@@ -1,0 +1,19 @@
+[project]
+name = "enterprise-ai-agent-autoclaim"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.162.0",
+    "google-adk>=2.13.0",
+    "google-auth>=2.62.0",
+    "google-cloud-bigquery>=3.47.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+]

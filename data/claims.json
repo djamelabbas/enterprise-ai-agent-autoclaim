@@ -1,0 +1,131 @@
+[
+  {
+    "claim_id": "SIN-1001",
+    "policy_id": "POL-AUTO-001",
+    "event_date": "2026-10-30",
+    "coverage_code": "BRIS_GLACE",
+    "damage_eur": 600,
+    "received_documents": [
+      "devis_reparation"
+    ],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Pare-brise fissure apres projection de gravillon."
+  },
+  {
+    "claim_id": "SIN-1002",
+    "policy_id": "POL-AUTO-002",
+    "event_date": "2026-10-28",
+    "coverage_code": "VOL",
+    "damage_eur": 9500,
+    "received_documents": [
+      "depot_plainte"
+    ],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Vol declare pour un contrat sans garantie vol."
+  },
+  {
+    "claim_id": "SIN-1003",
+    "policy_id": "POL-AUTO-001",
+    "event_date": "2026-10-31",
+    "coverage_code": "BRIS_GLACE",
+    "damage_eur": 500,
+    "received_documents": [
+      "devis_reparation"
+    ],
+    "flags": [
+      "suspicion_acte_intentionnel"
+    ],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Bris de glace avec indice de dommage intentionnel non confirme."
+  },
+  {
+    "claim_id": "SIN-1004",
+    "policy_id": "POL-AUTO-001",
+    "event_date": "2026-10-20",
+    "coverage_code": "VOL",
+    "damage_eur": 12000,
+    "received_documents": [
+      "depot_plainte"
+    ],
+    "flags": [
+      "declaration_tardive"
+    ],
+    "authorized_groups": [
+      "superviseurs_auto"
+    ],
+    "description": "Vol declare tardivement; revue humaine obligatoire."
+  },
+  {
+    "claim_id": "SIN-1005",
+    "policy_id": "POL-AUTO-001",
+    "event_date": "2026-10-25",
+    "coverage_code": "DTA",
+    "damage_eur": 15500,
+    "received_documents": [
+      "constat"
+    ],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Collision, plafonnement applique selon avenant AV-001."
+  },
+  {
+    "claim_id": "SIN-1006",
+    "policy_id": "POL-AUTO-001",
+    "event_date": "2025-12-29",
+    "coverage_code": "BRIS_GLACE",
+    "damage_eur": 350,
+    "received_documents": [
+      "devis_reparation"
+    ],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Date de sinistre anterieure au contrat."
+  },
+  {
+    "claim_id": "SIN-1007",
+    "policy_id": "POL-AUTO-002",
+    "event_date": "2026-10-24",
+    "coverage_code": "BRIS_GLACE",
+    "damage_eur": 430,
+    "received_documents": [],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Devis de reparation manquant."
+  },
+  {
+    "claim_id": "SIN-1008",
+    "policy_id": "POL-AUTO-002",
+    "event_date": "2026-10-02",
+    "coverage_code": "BRIS_GLACE",
+    "damage_eur": 1200,
+    "received_documents": [
+      "devis_reparation"
+    ],
+    "flags": [],
+    "authorized_groups": [
+      "gestionnaires_auto",
+      "superviseurs_auto"
+    ],
+    "description": "Montant des dommages superieur au plafond."
+  }
+]

@@ -1,0 +1,219 @@
+"""API web AutoClaim protegee par IAP sur Cloud Run.
+
+La meme identite verifiee est capturee par les outils Python et n'est
+JAMAIS configurable depuis le corps de la requete ou une question LLM.
+Le backend est volontairement en lecture seule (aucune indemnisation).
+"""
+
+import logging
+import os
+from time import perf_counter
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, ConfigDict, Field
+
+from autoclaim_agent.retrieval import BigQueryClauseRetriever
+from autoclaim_agent.security import VerifiedPrincipal
+from autoclaim_agent.tools import create_tools
+
+from .adk_runtime import answer_with_adk
+from .iap_auth import AuthenticatedUser, InvalidIdentity, verify_iap_assertion
+from .observability import log_coverage_review, log_http, log_llm_call
+from .roles import resolve_groups
+
+LOG = logging.getLogger("autoclaim.api")
+
+
+@dataclass(frozen=True)
+class RequestContext:
+    identity: AuthenticatedUser
+    principal: VerifiedPrincipal
+
+
+class AskRequest(BaseModel):
+    """Schema strict : interdit 'groups', 'role', 'email' injectes par client."""
+
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(min_length=3, max_length=1200)
+
+
+def bigquery_retriever_factory():
+    """Service GCP par defaut : jamais un backend local depuis Internet."""
+    project = os.environ.get("AUTOCLAIM_GCP_PROJECT", "").strip()
+    if not project:
+        raise RuntimeError("AUTOCLAIM_GCP_PROJECT manquant")
+    return BigQueryClauseRetriever(
+        project,
+        location=os.environ.get("AUTOCLAIM_BIGQUERY_LOCATION", "europe-west1"),
+    )
+
+
+def build_app(
+    *,
+    verifier: Callable[[str, str], AuthenticatedUser] = verify_iap_assertion,
+    role_resolver: Callable[[str], frozenset[str]] = resolve_groups,
+    retriever_factory: Callable = bigquery_retriever_factory,
+) -> FastAPI:
+    """Fabrique injectable : tests offline sans contourner la config reelle."""
+    application = FastAPI(
+        title="AutoClaim Coverage Copilot (MVP)",
+        description="Preanalyse fictive, revue humaine obligatoire.",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+
+    @application.middleware("http")
+    async def trace_http(request: Request, call_next):
+        """Journaliser toutes les requetes sans identifier les dossiers.
+
+        En particulier, le nom de route est le template /{claim_id}
+        et jamais l'URL complete contenant SIN-xxxx.
+        """
+        started = perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        finally:
+            log_http(
+                request.scope.get("route"),
+                request.method,
+                status_code,
+                (perf_counter() - started) * 1000,
+            )
+
+    def require_context(request: Request) -> RequestContext:
+        """Authentifier cryptographiquement AVANT de lire un dossier."""
+        audience = os.getenv("AUTOCLAIM_IAP_AUDIENCE", "")
+        if not audience:
+            # Une configuration incomplete ne doit pas ouvrir l'application.
+            raise HTTPException(status_code=503, detail="Authentification indisponible")
+
+        token = request.headers.get("X-Goog-IAP-JWT-Assertion", "")
+        try:
+            identity = verifier(token, audience)
+        except InvalidIdentity as exc:
+            raise HTTPException(status_code=401, detail="Authentification requise") from exc
+
+        # IAP identifie la personne ; l'API determine ses droits metier.
+        groups = role_resolver(identity.email)
+        if not groups:
+            raise HTTPException(status_code=403, detail="Acces metier non autorise")
+        principal = VerifiedPrincipal(subject=identity.subject, groups=groups)
+        return RequestContext(identity=identity, principal=principal)
+
+    @application.get("/healthz")
+    def healthz():
+        # Ne renvoie aucune information metier ni le statut des secrets.
+        # IAP protege egalement cet endpoint au niveau de Cloud Run.
+        return {"status": "ok"}
+
+    @application.get("/", response_class=HTMLResponse)
+    def home():
+        from pathlib import Path
+        return (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+
+    @application.get("/api/me")
+    def me(context: RequestContext = Depends(require_context)):
+        """Permet de constater que les DEUX comptes IAP sont distincts."""
+        return {
+            "email": context.identity.email,
+            "groups": sorted(context.principal.groups),
+            "source": "verified_iap_jwt",
+        }
+
+    @application.get("/api/claims/{claim_id}/review")
+    def review(claim_id: str, context: RequestContext = Depends(require_context)):
+        """Preambule deterministe, references BigQuery, aucune decision."""
+        try:
+            review_tool, _ = create_tools(context.principal, retriever_factory())
+            result = review_tool(claim_id)
+        except Exception:
+            LOG.exception("Erreur technique de preanalyse")
+            raise HTTPException(status_code=503, detail="Service indisponible")
+        if result.get("status") == "NOT_ACCESSIBLE":
+            # Meme statut HTTP pour identifiant inconnu et dossier interdit.
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        # Journal d'activite metier minimal : sans ID sinistre ni clause.
+        log_coverage_review(result)
+        return result
+
+    @application.get("/api/claims/{claim_id}/clauses")
+    def clauses(
+        claim_id: str,
+        query: str,
+        context: RequestContext = Depends(require_context),
+    ):
+        """Recherche de documents uniquement dans le contexte du dossier."""
+        if not 2 <= len(query) <= 300:
+            raise HTTPException(status_code=422, detail="Question invalide")
+        try:
+            _, search_tool = create_tools(context.principal, retriever_factory())
+            result = search_tool(claim_id, query)
+        except Exception:
+            LOG.exception("Erreur technique de recherche")
+            raise HTTPException(status_code=503, detail="Recherche indisponible")
+        if result.get("status") == "NOT_ACCESSIBLE":
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        return result
+
+    @application.post("/api/claims/{claim_id}/ask")
+    async def ask(
+        claim_id: str,
+        body: AskRequest,
+        context: RequestContext = Depends(require_context),
+    ):
+        """Un appel Gemini uniquement pour un dossier deja controle.
+
+        Les preuves indisponibles empechent tout appel LLM et toute
+        suggestion de couverture. Une demande interdite reste sans cout.
+        """
+        try:
+            retriever = retriever_factory()
+            review_tool, _ = create_tools(context.principal, retriever)
+            preflight = review_tool(claim_id)
+        except Exception:
+            LOG.exception("Erreur technique avant appel LLM")
+            raise HTTPException(status_code=503, detail="Preanalyse indisponible")
+
+        if preflight.get("status") == "NOT_ACCESSIBLE":
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        if preflight.get("status") in {"EVIDENCE_UNAVAILABLE", "EVIDENCE_INCOMPLETE"}:
+            raise HTTPException(status_code=503, detail="Preuves documentaires indisponibles")
+
+        # Mesure de l'appel LLM seule, distincte du temps total de requete.
+        # Ni prompt, ni reponse, ni identite ne sont conserves dans ces logs.
+        started_llm = perf_counter()
+        try:
+            answer = await answer_with_adk(
+                context.principal,
+                retriever,
+                claim_id,
+                body.question,
+            )
+        except Exception:
+            log_llm_call(False, (perf_counter() - started_llm) * 1000)
+            LOG.exception("Erreur d'execution ADK")
+            raise HTTPException(status_code=503, detail="Agent indisponible")
+        log_llm_call(True, (perf_counter() - started_llm) * 1000)
+
+        return {
+            "claim_id": claim_id.upper(),
+            "status": preflight["status"],
+            "answer": answer,
+            "source_refs": preflight.get("source_refs", []),
+            "human_validation_required": True,
+            "disclaimer": "Simulation fictive ; validation humaine obligatoire.",
+        }
+
+    return application
+
+
+# Objet charge par Uvicorn ; aucune configuration de developpement qui
+# contourne les controles d'identite en mode Cloud Run.
+app = build_app()

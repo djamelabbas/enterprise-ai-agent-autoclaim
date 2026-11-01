@@ -1,0 +1,17 @@
+# Ne jamais inclure les secrets ni les sorties locales dans l'image.
+.env
+**/.env
+.venv/
+**/.venv/
+.adk/
+**/.adk/
+.git/
+.github/
+.pytest_cache/
+**/__pycache__/
+*.pyc
+results/
+logs/
+tests/
+.vscode/
+*.zip

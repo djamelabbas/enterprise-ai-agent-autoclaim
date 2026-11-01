@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.env
+**/.env
+**/.adk/
+results/
+
+.env.*
+!.env.example
+.venv/
+**/.adk/
+.pytest_cache/
+*.pem
+*.key

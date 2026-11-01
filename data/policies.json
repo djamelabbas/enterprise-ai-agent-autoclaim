@@ -1,0 +1,40 @@
+[
+  {
+    "policy_id": "POL-AUTO-001",
+    "product": "AUTO_DEMO",
+    "conditions_particulieres_ref": "CP-POL-AUTO-001@v1.0",
+    "effective_from": "2026-01-01",
+    "effective_to": "2026-12-31",
+    "coverages": {
+      "BRIS_GLACE": {
+        "deductible_eur": 80,
+        "limit_eur": 1200
+      },
+      "VOL": {
+        "deductible_eur": 350,
+        "limit_eur": 15000
+      },
+      "DTA": {
+        "deductible_eur": 600,
+        "limit_eur": 8000
+      }
+    }
+  },
+  {
+    "policy_id": "POL-AUTO-002",
+    "product": "AUTO_DEMO",
+    "conditions_particulieres_ref": "CP-POL-AUTO-002@v1.0",
+    "effective_from": "2026-01-01",
+    "effective_to": "2026-12-31",
+    "coverages": {
+      "BRIS_GLACE": {
+        "deductible_eur": 120,
+        "limit_eur": 900
+      },
+      "DTA": {
+        "deductible_eur": 650,
+        "limit_eur": 7000
+      }
+    }
+  }
+]

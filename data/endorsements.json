@@ -1,0 +1,14 @@
+[
+  {
+    "endorsement_id": "AV-001",
+    "policy_id": "POL-AUTO-001",
+    "coverage_code": "DTA",
+    "effective_from": "2026-10-15",
+    "version": "1.0",
+    "changes": {
+      "limit_eur": 10000
+    },
+    "citation": "AV-001@v1.0#DTA",
+    "status": "active"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "claim_id": "SIN-1001",
+    "expected_status": "COVERED_IN_PRINCIPLE",
+    "expected_indicative_amount_eur": 520
+  },
+  {
+    "claim_id": "SIN-1002",
+    "expected_status": "NOT_SUBSCRIBED",
+    "expected_indicative_amount_eur": null
+  },
+  {
+    "claim_id": "SIN-1003",
+    "expected_status": "EXCLUSION_REVIEW",
+    "expected_indicative_amount_eur": null
+  },
+  {
+    "claim_id": "SIN-1004",
+    "expected_status": "DECHANCE_REVIEW",
+    "expected_indicative_amount_eur": null
+  },
+  {
+    "claim_id": "SIN-1005",
+    "expected_status": "COVERED_IN_PRINCIPLE",
+    "expected_indicative_amount_eur": 9400
+  },
+  {
+    "claim_id": "SIN-1006",
+    "expected_status": "OUT_OF_PERIOD",
+    "expected_indicative_amount_eur": null
+  },
+  {
+    "claim_id": "SIN-1007",
+    "expected_status": "NEEDS_DOCUMENTS",
+    "expected_indicative_amount_eur": null
+  },
+  {
+    "claim_id": "SIN-1008",
+    "expected_status": "COVERED_IN_PRINCIPLE",
+    "expected_indicative_amount_eur": 780
+  }
+]

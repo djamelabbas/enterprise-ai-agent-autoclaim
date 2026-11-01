@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoClaim Coverage Copilot - Demo</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background:#f4f6fb; color:#18263c; }
+    body { margin:0; padding:40px 16px; }
+    main { max-width:880px; margin:auto; background:white; padding:28px; border:1px solid #dce3ef; border-radius:14px; }
+    h1 { margin:0 0 6px; font-size:27px; }
+    p { color:#546275; }
+    label { display:block; font-weight:600; margin-top:16px; margin-bottom:5px; }
+    input,textarea { box-sizing:border-box; width:100%; padding:12px; border:1px solid #b7c4d8; border-radius:8px; font:inherit; }
+    button { background:#204f95; color:#fff; border:0; padding:11px 16px; border-radius:8px; font-weight:600; margin:12px 8px 6px 0; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#eef2f9; padding:16px; border-radius:8px; min-height:35px; }
+    small { color:#626e7f; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>AutoClaim Coverage Copilot</h1>
+  <p>Preanalyse fictive des sinistres automobiles. Aucune decision d'indemnisation.</p>
+  <div id="identity"><small>Identite en cours de verification...</small></div>
+  <label for="claim">Identifiant du sinistre</label>
+  <input id="claim" maxlength="20" value="SIN-1001" autocomplete="off">
+  <label for="question">Question</label>
+  <textarea id="question" rows="3">Ce sinistre est-il couvert en principe ? Quelle franchise et quels justificatifs ? Cite tes sources.</textarea>
+  <button id="review">Preambule deterministe + preuves</button>
+  <button id="clauses">Rechercher les clauses</button>
+  <button id="ask">Interroger Gemini (facturable)</button>
+  <h2>Resultat</h2>
+  <pre id="output" aria-live="polite">Pret.</pre>
+  <small>Verification IAP obligatoire. Testez SIN-1004 avec le gestionnaire puis le superviseur.</small>
+</main>
+<script>
+  // Ne jamais injecter les reponses LLM dans innerHTML : utiliser textContent.
+  const out = document.getElementById('output');
+  const claim = document.getElementById('claim');
+  const question = document.getElementById('question');
+  async function call(path, options) {
+    document.querySelectorAll('button').forEach(b => b.disabled = true);
+    out.textContent = 'Traitement en cours...';
+    try {
+      const response = await fetch(path, options);
+      const data = await response.json();
+      out.textContent = `HTTP ${response.status}\n` + JSON.stringify(data, null, 2);
+    } catch (error) {
+      out.textContent = 'Erreur de communication : ' + String(error);
+    } finally {
+      document.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  }
+  function dossier() { return encodeURIComponent(claim.value.trim().toUpperCase()); }
+  document.getElementById('review').addEventListener('click', () => call(`/api/claims/${dossier()}/review`));
+  document.getElementById('clauses').addEventListener('click', () => call(`/api/claims/${dossier()}/clauses?query=${encodeURIComponent(question.value)}`));
+  document.getElementById('ask').addEventListener('click', () => {
+    if (confirm('Lancer un appel Gemini facturable pour ce dossier fictif ?')) {
+      call(`/api/claims/${dossier()}/ask`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({question:question.value})
+      });
+    }
+  });
+  fetch('/api/me').then(async r => {
+    const d = await r.json();
+    document.getElementById('identity').textContent = r.ok
+      ? `Compte IAP : ${d.email} | Roles : ${d.groups.join(', ')}`
+      : `Acces applicatif : HTTP ${r.status}`;
+  }).catch(() => { document.getElementById('identity').textContent = 'Identite indisponible'; });
+</script>
+</body>
+</html>
