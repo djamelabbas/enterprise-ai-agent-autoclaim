@@ -1,0 +1,187 @@
+[
+  {
+    "id": "Q01",
+    "question": "Quelles pieces justificatives pour un pare-brise fissure ?",
+    "expected": [
+      "DOC-GUIDE-BG-2026@v1.0#P001-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q02",
+    "question": "Comment verifier les documents avant de valider un vitrage ?",
+    "expected": [
+      "DOC-GUIDE-BG-2026@v1.0#P002-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q03",
+    "question": "Quel est le principe de la garantie vitrage ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#BG-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q04",
+    "question": "Quelle methode est utilisee pour le calcul indicatif apres franchise ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#CALC-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q05",
+    "question": "Quelle verification humaine faut-il faire en cas de declaration tardive ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#DEC-01"
+    ],
+    "coverage_code": "VOL",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-20"
+  },
+  {
+    "id": "Q06",
+    "question": "Une suspicion de dommage volontaire suffit-elle a exclure ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#EXC-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q07",
+    "question": "Comment traiter le depot de plainte apres un vol de vehicule ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#VOL-01"
+    ],
+    "coverage_code": "VOL",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-20"
+  },
+  {
+    "id": "Q08",
+    "question": "Quand utiliser le constat pour collision dommages tous accidents ?",
+    "expected": [
+      "CG-AUTO-DEMO-2026@v1.0#DTA-01"
+    ],
+    "coverage_code": "DTA",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-25"
+  },
+  {
+    "id": "Q09",
+    "question": "Quelles regles d'audit pour les pieces effectivement recues ?",
+    "expected": [
+      "DOC-PROCEDURE-AUTO-2026@v1.0#S001-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q10",
+    "question": "Comment escalader un dossier sensible a la supervision ?",
+    "expected": [
+      "DOC-CONTROLE-SENSIBLE-2026@v1.0#S001-01"
+    ],
+    "coverage_code": "VOL",
+    "groups": [
+      "superviseurs_auto"
+    ],
+    "event_date": "2026-10-20"
+  },
+  {
+    "id": "Q11",
+    "question": "Dois-je divulguer la note de supervision ?",
+    "forbidden": [
+      "DOC-CONTROLE-SENSIBLE-2026@v1.0#S001-01",
+      "CG-AUTO-DEMO-2026@v1.0#CONF-01"
+    ],
+    "expected": [],
+    "coverage_code": "VOL",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-20"
+  },
+  {
+    "id": "Q12",
+    "question": "Puis-je consulter cette garantie perimee ?",
+    "forbidden": [
+      "CG-AUTO-DEMO-2026@v1.0#BG-01"
+    ],
+    "expected": [],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2027-02-01"
+  },
+  {
+    "id": "Q13",
+    "question": "Que rapporte le constat visuel image du pare-brise de SIN-1001, quel devis de 600 euros est annonce et est-il signe ?",
+    "expected": [
+      "DOC-CONSTAT-VISUEL-2026@v1.0#IMG-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  },
+  {
+    "id": "Q14",
+    "question": "Montre le constat visuel du pare-brise, gravillon, devis de 600 euros, non signe, dans une police perimee.",
+    "expected": [],
+    "forbidden": [
+      "DOC-CONSTAT-VISUEL-2026@v1.0#IMG-01"
+    ],
+    "coverage_code": "BRIS_GLACE",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2027-02-01"
+  },
+  {
+    "id": "Q15",
+    "question": "Je cherche le constat visuel du pare-brise de SIN-1001 et son devis de 600 euros, mais sur un sinistre vol.",
+    "expected": [],
+    "forbidden": [
+      "DOC-CONSTAT-VISUEL-2026@v1.0#IMG-01"
+    ],
+    "coverage_code": "VOL",
+    "groups": [
+      "gestionnaires_auto"
+    ],
+    "event_date": "2026-10-30"
+  }
+]

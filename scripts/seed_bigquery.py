@@ -14,7 +14,7 @@ from autoclaim_agent.retrieval import BigQueryClauseRetriever, normalize
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def build_rows(*, include_documents: bool = False) -> list[dict]:
+def build_rows(*, include_documents: bool = False, include_images: bool = False) -> list[dict]:
     """Preparer une ligne par clause, en preservant les dates et les ACL."""
     rows = []
     source = ROOT / "contracts" / "clauses.jsonl"
@@ -42,6 +42,22 @@ def build_rows(*, include_documents: bool = False) -> list[dict]:
                 rows.append(doc)
         if len({row["citation"] for row in rows}) != len(rows):
             raise ValueError("Duplicate citations in dataset")
+    if include_images and not include_documents:
+        raise ValueError("Inclure les PDF/DOCX lors du rechargement de la table fictive")
+    if include_images:
+        # Images are only indexed AFTER an explicit Gemini OCR + human review.
+        # Never implicitly infer OCR text from an unreviewed image.
+        source = ROOT / "contracts" / "ingested_images.jsonl"
+        if not source.is_file():
+            raise FileNotFoundError("OCR non valide : lancer scripts.ingest_images --execute puis --approve")
+        for line in source.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                image = json.loads(line)
+                if image["clause_type"] != "document_excerpt":
+                    raise ValueError("Type image invalide")
+                rows.append(image)
+    if len({row["citation"] for row in rows}) != len(rows):
+        raise ValueError("Citations en doublon")
     if not rows:
         raise ValueError("Aucune clause a charger")
     return rows
@@ -53,10 +69,11 @@ def main() -> None:
     parser.add_argument("--location", default="europe-west1")
     parser.add_argument("--execute", action="store_true", help="Autoriser le chargement facturable")
     parser.add_argument("--include-documents", action="store_true", help="Inclure le corpus PDF/DOCX approuve")
+    parser.add_argument("--include-images", action="store_true", help="Inclure OCR image apres validation humaine")
     args = parser.parse_args()
 
     retriever = BigQueryClauseRetriever(args.project, location=args.location)
-    rows = build_rows(include_documents=args.include_documents)
+    rows = build_rows(include_documents=args.include_documents, include_images=args.include_images)
     print(f"Cible : {retriever.table_id} ({args.location})")
     print(f"Clauses et extraits documentaires fictifs : {len(rows)}")
     print("ATTENTION : cette commande remplace la table de demonstration cible.")

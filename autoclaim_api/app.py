@@ -17,6 +17,8 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from autoclaim_agent.retrieval import BigQueryClauseRetriever
+from autoclaim_agent.hybrid import HybridClauseRetriever
+from autoclaim_agent.si_rest import SIUnavailable, ensure_consistent, rest_enabled, make_si_connector
 from autoclaim_agent.repository import list_claims
 from autoclaim_agent.documents import accessible_claim, list_documents, get_document
 from autoclaim_agent.security import VerifiedPrincipal
@@ -63,10 +65,12 @@ def bigquery_retriever_factory():
     project = os.environ.get("AUTOCLAIM_GCP_PROJECT", "").strip()
     if not project:
         raise RuntimeError("AUTOCLAIM_GCP_PROJECT manquant")
-    return BigQueryClauseRetriever(
-        project,
-        location=os.environ.get("AUTOCLAIM_BIGQUERY_LOCATION", "europe-west1"),
-    )
+    location = os.environ.get("AUTOCLAIM_BIGQUERY_LOCATION", "europe-west1")
+    mode = os.environ.get("AUTOCLAIM_RETRIEVAL_MODE", "lexical").strip()
+    if mode == "lexical":
+        return BigQueryClauseRetriever(project, location=location)
+    # A separate versioned embedding table must exist before enabling.
+    return HybridClauseRetriever(project, location=location, mode=mode)
 
 
 def build_app(
@@ -215,15 +219,19 @@ def build_app(
         item = get_document(claim, context.principal, document_id)
         if item is None:
             raise HTTPException(status_code=404, detail="Document indisponible")
-        is_pdf = item["path"].suffix.lower() == ".pdf"
+        suffix = item["path"].suffix.lower()
+        is_pdf = suffix == ".pdf"
+        is_image = suffix in {".png", ".jpg", ".jpeg"}
         return FileResponse(
             item["path"],
             media_type=(
-                "application/pdf" if is_pdf
-                else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                "application/pdf" if is_pdf else
+                "image/png" if suffix == ".png" else
+                "image/jpeg" if is_image else
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             ),
             filename=item["filename"],
-            content_disposition_type="inline" if is_pdf else "attachment",
+            content_disposition_type="inline" if (is_pdf or is_image) else "attachment",
             headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
         )
 
@@ -311,6 +319,27 @@ def build_app(
             "disclaimer": "Simulation fictive ; validation humaine obligatoire.",
         }
 
+    @application.get("/api/claims/{claim_id}/si-check")
+    def check_si(claim_id: str, context: RequestContext = Depends(require_context)):
+        """Read-only, authenticated SI service call AFTER local business ACL.
+
+        Even though the SI connector uses a Cloud Run service account, the
+        caller's dossier authorization remains mandatory and server-enforced.
+        """
+        claim = accessible_claim(claim_id, context.principal)
+        if claim is None:
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        try:
+            remote = make_si_connector().get_claim(claim["claim_id"])
+            ensure_consistent(claim, remote)
+        except SIUnavailable:
+            from .observability import log_si_connector
+            log_si_connector(False)
+            raise HTTPException(status_code=503, detail="Verification SI indisponible")
+        from .observability import log_si_connector
+        log_si_connector(True)
+        return {"status": "MATCH", "source_system": "SI_FICTIF_REST", "human_validation_required": True}
+
     @application.post("/api/claims/{claim_id}/chat")
     async def chat(
         claim_id: str,
@@ -341,6 +370,26 @@ def build_app(
             LOG.exception("Erreur technique avant conversation")
             raise HTTPException(status_code=503, detail="Recherche indisponible")
 
+        # Optional cross-service SI verification: abort if REST differs
+        # from the locally authorized claim; no silent fallback to JSON.
+        verified_si_context = ""
+        if rest_enabled():
+            from .observability import log_si_connector
+            try:
+                remote = make_si_connector().get_claim(claim["claim_id"])
+                consistent = ensure_consistent(claim, remote)
+                verified_si_context = (
+                    "\n[Contexte SI REST verifie par le backend : "
+                    f"garantie={consistent['coverage_code']}, "
+                    f"pieces_recues={','.join(consistent['received_documents']) or 'aucune'}, "
+                    f"montant_declare={consistent['damage_eur']} EUR. "
+                    "La liste des pieces recues provient du SI, pas du guide documentaire.]"
+                )
+                log_si_connector(True)
+            except SIUnavailable:
+                log_si_connector(False)
+                raise HTTPException(status_code=503, detail="Verification SI indisponible")
+
         # The LLM is never the authority for the list of cited sources.
         # The audit after generation will reconcile each cited ID with the
         # preflight and/or an exact, ACL-filtered BigQuery lookup.
@@ -351,7 +400,7 @@ def build_app(
                 context.principal,
                 retriever,
                 claim["claim_id"],
-                body.question,
+                body.question + verified_si_context,
                 history=[turn.model_dump() for turn in body.history],
             )
         except Exception:

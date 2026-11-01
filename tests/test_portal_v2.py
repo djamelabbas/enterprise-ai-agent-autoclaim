@@ -69,7 +69,8 @@ def test_document_catalog_requires_claim_access(client):
 def test_manager_document_catalog_filters_supervisor_note(client):
     result=client.get('/api/claims/SIN-1001/documents',headers=headers())
     assert result.status_code==200
-    assert len(result.json()['documents'])==2
+    from scripts.ingest_images import MANIFEST
+    assert len(result.json()['documents']) == 2 + int(MANIFEST.exists())
     assert 'DOC-CONTROLE-SENSIBLE-2026' not in result.text
 
 

@@ -20,6 +20,32 @@ See [`docs/LOT7_AUTOCLAIM_360.md`](docs/LOT7_AUTOCLAIM_360.md) for PowerShell
 installation, document ingestion, BigQuery reseeding and deployment; see
 [`docs/DEMO_AUTOCLAIM_360.md`](docs/DEMO_AUTOCLAIM_360.md) for the client demo.
 
+## V3 - Hybrid retrieval, REST SI and vision/OCR
+
+**Deployment status:** hybrid RAG and the read-only REST consistency check have been enabled and tested on the **demo Cloud Run environment**; a fictional PNG was indexed after a human OCR review. The code defaults to lexical retrieval in a fresh installation, and new users must configure their own deployment and identities.
+
+- **P1 search quality:** Gemini Embedding 001 in `europe-west1`, separate BigQuery vector table, cosine-based semantic search, RRF lexical/semantic fusion, 15-question retrieval benchmark with Hit@5/MRR@5 and forbidden-citation checks (12 validated in the previous evaluation; 3 new OCR-focused cases require rerunning the GCP benchmark). Exact contractual evidence lookup is unchanged.
+- **P2 integration:** a second, IAM-protected Cloud Run service implements a read-only fictional claims REST API. A Google ID-token connector compares its data to the dossier already authorized by FastAPI; no silent fallback.
+- **P2 operations:** sanitized Cloud Logging events for retrieval mode, REST status, observed ADK tokens; a price-parameterized illustrative cost estimator, plus 8 business-rule golden cases.
+- **P3 document vision:** a fictional PNG processed by an opt-in Gemini Vision/OCR pipeline, with human-approved transcription, versioned citations and image ACL. No image is indexed or displayed before operator approval.
+
+Start with **[`docs/LOT9_11_DEPLOIEMENT.md`](docs/LOT9_11_DEPLOIEMENT.md)** (PowerShell, phased steps and rollback). Updated architecture: [`docs/ARCHITECTURE_V3.md`](docs/ARCHITECTURE_V3.md).
+
+**Not included:** native Gemini Enterprise deployment, Google Workspace synchronization, automated legal decisions, production-grade semantic evaluation, real customer documents, OCR without review, a load test at 400 users.
+
+
+## V3 — Enterprise architecture demo (November 2026)
+
+This version extends the verified V2 with a **hybrid BigQuery RAG** (lexical `SEARCH` + Gemini embeddings at 768 dimensions + `COSINE_DISTANCE` + RRF), a separate read-only Cloud Run mock-SI REST service invoked through IAM, sanitized Gemini token telemetry, and Gemini Vision OCR of a **fictional image reviewed by a human before indexing**. The demonstration corpus contains 12 passages (7 clauses, 4 PDF/DOCX extracts, 1 approved PNG extraction).
+
+A release-focused golden evaluation adds **three cases** to the prior 12: OCR retrieval (`Q13`), expired OCR (`Q14`), and OCR requested under the wrong coverage (`Q15`). Evaluate on GCP before treating these results as validated. The existing 12-case benchmark reported hybrid MRR@5=1.0 and no forbidden citations, on a tiny fictional corpus.
+
+- [Architecture V3 with tradeoffs](docs/ARCHITECTURE_V3.md)
+- [Release gates, benchmark and GitHub publication](docs/RELEASE_V3.md)
+- [Client demonstration — Architecte IA / Gemini Enterprise](docs/DEMO_ARCHITECTE_IA.md)
+
+The service uses **Google ADK on Cloud Run**, not a native Gemini Enterprise tenant. Google Workspace administration and group synchronization are not demonstrated, and 400-user capacity is not load-tested.
+
 ## Demonstrated capabilities
 
 - **Agent orchestration:** Google ADK tools bound to a backend-verified principal; the LLM cannot choose its own access groups.

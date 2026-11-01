@@ -50,11 +50,22 @@ async def answer_with_adk(
     content = types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
 
     output = []
+    input_tokens = output_tokens = 0
+    counted_usage_events = set()
     async for event in runner.run_async(
         user_id=principal.subject,
         session_id=session.id,
         new_message=content,
     ):
+        usage = getattr(event, "usage_metadata", None)
+        if usage is not None:
+            # Count each distinct ADK model-event once. These figures are
+            # telemetry, not a substitute for the Cloud Billing invoice.
+            event_key = getattr(event, "id", None) or id(event)
+            if event_key not in counted_usage_events:
+                counted_usage_events.add(event_key)
+                input_tokens += int(getattr(usage, "prompt_token_count", 0) or 0)
+                output_tokens += int(getattr(usage, "candidates_token_count", 0) or 0)
         if event.is_final_response() and event.content:
             for part in event.content.parts or []:
                 if part.text:
@@ -62,4 +73,7 @@ async def answer_with_adk(
 
     if not output:
         raise RuntimeError("Le modele n'a pas produit de reponse exploitable")
+    if input_tokens or output_tokens:
+        from .observability import log_model_usage
+        log_model_usage(agent.model, input_tokens, output_tokens)
     return "\n".join(output)

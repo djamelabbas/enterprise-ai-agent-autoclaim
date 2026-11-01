@@ -65,7 +65,9 @@ def _reference_from_evidence(row: dict, *, allowed_docs: dict[str, dict]) -> dic
             "citation": citation,
             "title": row["title"],
             "excerpt": row["text"][:1100],
-            "origin": "DOCUMENT_PDF_DOCX",
+            "origin": ("DOCUMENT_OCR_IMAGE_NON_CERTIFIE"
+                       if doc["format"] in {"png", "jpg", "jpeg"}
+                       else "DOCUMENT_PDF_DOCX"),
             "document_id": document_id,
             "format": doc["format"],
         }

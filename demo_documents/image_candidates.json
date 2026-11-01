@@ -1,0 +1,12 @@
+{
+  "images": [{
+    "document_id": "DOC-CONSTAT-VISUEL-2026",
+    "filename": "constat_visuel_demo.png",
+    "title": "Constat visuel fictif de bris de glace",
+    "version": "1.0",
+    "coverage_code": "BRIS_GLACE",
+    "allowed_groups": ["gestionnaires_auto", "superviseurs_auto"],
+    "effective_from": "2026-01-01",
+    "effective_to": "2026-12-31"
+  }]
+}

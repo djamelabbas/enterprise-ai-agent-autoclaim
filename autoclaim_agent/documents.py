@@ -18,7 +18,7 @@ from .security import VerifiedPrincipal
 
 DOC_ROOT = ROOT / "demo_documents"
 DOCUMENT_ID_RE = re.compile(r"^DOC-[A-Z0-9-]{5,70}$")
-ALLOWED_SUFFIXES = {".pdf", ".docx"}
+ALLOWED_SUFFIXES = {".pdf", ".docx", ".png", ".jpg", ".jpeg"}
 
 
 @lru_cache(maxsize=1)
@@ -27,6 +27,12 @@ def catalog() -> tuple[dict, ...]:
     path = DOC_ROOT / "manifest.json"
     metadata = json.loads(path.read_text(encoding="utf-8"))
     entries = metadata.get("documents", [])
+    # Image documents are OPTIONAL and only activated after operator approval.
+    # This avoids exposing an unreviewed OCR asset through the document API.
+    image_manifest = DOC_ROOT / "manifest_images.json"
+    if image_manifest.is_file():
+        extras = json.loads(image_manifest.read_text(encoding="utf-8"))
+        entries = entries + extras.get("documents", [])
     if not isinstance(entries, list) or len(entries) > 50:
         raise ValueError("Document catalog invalid")
     seen: set[str] = set()

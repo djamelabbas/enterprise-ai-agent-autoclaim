@@ -15,10 +15,13 @@ SUPERVISOR = VerifiedPrincipal('supervisor', frozenset({'superviseurs_auto'}))
 CLAIM = find_claim('SIN-1001')
 
 
-def test_catalog_is_real_three_files():
+def test_catalog_contains_original_three_files_and_optional_approved_image():
+    from scripts.ingest_images import MANIFEST
     entries = catalog()
-    assert len(entries) == 3
-    assert {d['path'].suffix for d in entries} == {'.pdf', '.docx'}
+    assert len(entries) == 3 + int(MANIFEST.exists())
+    assert {'.pdf', '.docx'} <= {d['path'].suffix for d in entries}
+    if MANIFEST.exists():
+        assert '.png' in {d['path'].suffix for d in entries}
     assert all(d['path'].is_file() for d in entries)
 
 
@@ -79,14 +82,16 @@ def test_bq_seed_adds_real_document_chunks_opt_in_only():
 
 def test_manager_does_not_see_supervisor_document():
     visible = list_documents(CLAIM, MANAGER)
-    assert len(visible) == 2
+    from scripts.ingest_images import MANIFEST
+    assert len(visible) == 2 + int(MANIFEST.exists())
     assert all(d['document_id'] != 'DOC-CONTROLE-SENSIBLE-2026' for d in visible)
     assert get_document(CLAIM, MANAGER, 'DOC-CONTROLE-SENSIBLE-2026') is None
 
 
 def test_supervisor_can_see_sensitive_document():
     visible = list_documents(CLAIM, SUPERVISOR)
-    assert len(visible) == 3
+    from scripts.ingest_images import MANIFEST
+    assert len(visible) == 3 + int(MANIFEST.exists())
     assert get_document(CLAIM, SUPERVISOR, 'DOC-CONTROLE-SENSIBLE-2026') is not None
 
 
