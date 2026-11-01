@@ -15,10 +15,15 @@ import sys
 # Liste positive des chemins HTTP : ne jamais journaliser le chemin brut,
 # car il contient des identifiants de sinistres (ex. SIN-1001).
 OPERATIONS = frozenset({
-    "/", "/healthz", "/api/me",
+    "/", "/healthz", "/api/me", "/assets/portal.css", "/assets/portal.js",
     "/api/claims/{claim_id}/review",
     "/api/claims/{claim_id}/clauses",
     "/api/claims/{claim_id}/ask",
+    "/api/claims",
+    "/api/claims/{claim_id}",
+    "/api/claims/{claim_id}/documents",
+    "/api/claims/{claim_id}/documents/{document_id}",
+    "/api/claims/{claim_id}/chat",
 })
 
 # Les statuts fonctionnels sont volontairement bornes a des valeurs connues.
@@ -82,4 +87,23 @@ def log_llm_call(succeeded: bool, duration_ms: float) -> None:
         "INFO" if succeeded else "ERROR",
         outcome="success" if succeeded else "error",
         duration_ms=round(max(0.0, duration_ms), 1),
+    )
+
+
+# No reference identifiers or model text in telemetry: only a bounded status
+# and source count can be emitted to Cloud Logging.
+GROUNDING_STATUSES = frozenset({
+    "VERIFIED_CITATIONS", "BLOCKED_UNVERIFIED_CITATION",
+    "NO_CITATIONS", "LOOKUP_UNAVAILABLE",
+})
+
+
+def log_citation_audit(status: str, source_count: int) -> None:
+    """Trace whether source reconciliation passed, without any citations."""
+    safe_status = status if status in GROUNDING_STATUSES else "OTHER"
+    _emit(
+        "citation_audit",
+        "INFO" if safe_status == "VERIFIED_CITATIONS" else "WARNING",
+        outcome=safe_status,
+        verified_source_count=max(0, min(12, int(source_count))),
     )

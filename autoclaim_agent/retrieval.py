@@ -77,7 +77,27 @@ def _rank(rows: list[dict[str, Any]], terms: tuple[str, ...], limit: int) -> lis
 
 
 class LocalClauseRetriever:
-    """Reference offline, identique a la recherche BigQuery pour les tests."""
+    """Offline retriever, with opt-in support for the indexed demo PDF/DOCX."""
+
+    def __init__(self, *, include_documents: bool = False):
+        self.include_documents = include_documents
+
+    def _allowed_rows(self, groups: frozenset[str], when: str) -> list[dict]:
+        rows = authorized_clauses(groups, when)
+        if self.include_documents:
+            from .repository import ROOT
+            import json
+            from pathlib import Path
+            index_path = ROOT / "contracts" / "ingested_documents.jsonl"
+            if index_path.is_file():
+                for line in index_path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    item = json.loads(line)
+                    if (groups.intersection(item["allowed_groups"])
+                        and item["effective_from"] <= when <= item["effective_to"]):
+                        rows.append(item)
+        return rows
 
     def search(
         self,
@@ -95,7 +115,7 @@ class LocalClauseRetriever:
         if limit < 1 or not terms:
             return []
         # Filtrer sur les groupes/date AVANT tout calcul de pertinence.
-        clauses = authorized_clauses(verified_groups, when.isoformat())
+        clauses = self._allowed_rows(verified_groups, when.isoformat())
         if coverage_code:
             clauses = [c for c in clauses if c["coverage_code"] in (coverage_code, "ALL")]
         return _rank(clauses, terms, limit)
@@ -107,6 +127,7 @@ class LocalClauseRetriever:
         *,
         verified_groups: frozenset[str],
         event_date: str,
+        coverage_code: str | None = None,
     ) -> list[dict]:
         """Retrouver des preuves exactes deja autorisees, sans score lexical."""
         if not verified_groups or not citations:
@@ -114,11 +135,17 @@ class LocalClauseRetriever:
         if len(citations) > 20:
             raise ValueError("Trop de citations demandees")
         when = _validate_date(event_date)
-        allowed = authorized_clauses(verified_groups, when.isoformat())
+        allowed = self._allowed_rows(verified_groups, when.isoformat())
         needed = set(citations)
         return [
-            {"citation": row["citation"], "title": row["title"], "text": row["text"]}
-            for row in allowed if row["citation"] in needed
+            {
+                "citation": row["citation"], "title": row["title"],
+                "text": row["text"], "document_id": row["document_id"],
+                "coverage_code": row["coverage_code"],
+            }
+            for row in allowed
+            if row["citation"] in needed
+            and (not coverage_code or row["coverage_code"] in (coverage_code, "ALL"))
         ]
 
 
@@ -210,6 +237,7 @@ class BigQueryClauseRetriever:
         *,
         verified_groups: frozenset[str],
         event_date: str,
+        coverage_code: str | None = None,
     ) -> list[dict]:
         """Lire les citations EXACTES sur BigQuery, avec ACL et validite en SQL.
 
@@ -226,9 +254,10 @@ class BigQueryClauseRetriever:
             self.client = bigquery.Client(project=self.project, location=self.location)
 
         sql = f"""
-            SELECT citation, title, text
+            SELECT citation, title, text, document_id, coverage_code
             FROM `{self.table_id}`
             WHERE citation IN UNNEST(@citations)
+              AND (@coverage_code = '' OR coverage_code IN (@coverage_code, 'ALL'))
               AND effective_from <= @event_date
               AND effective_to >= @event_date
               AND EXISTS (
@@ -241,6 +270,7 @@ class BigQueryClauseRetriever:
             bigquery.ArrayQueryParameter("citations", "STRING", sorted(set(citations))),
             bigquery.ScalarQueryParameter("event_date", "DATE", when),
             bigquery.ArrayQueryParameter("verified_groups", "STRING", sorted(verified_groups)),
+            bigquery.ScalarQueryParameter("coverage_code", "STRING", coverage_code or ""),
         ]
         job_config = bigquery.QueryJobConfig(
             query_parameters=params,

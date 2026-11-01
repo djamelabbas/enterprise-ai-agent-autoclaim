@@ -1,0 +1,34 @@
+{
+  "documents": [
+    {
+      "document_id": "DOC-GUIDE-BG-2026",
+      "filename": "guide_justificatifs_bris_de_glace.pdf",
+      "title": "Guide des justificatifs - bris de glace",
+      "version": "1.0",
+      "coverage_code": "BRIS_GLACE",
+      "allowed_groups": ["gestionnaires_auto", "superviseurs_auto"],
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31"
+    },
+    {
+      "document_id": "DOC-PROCEDURE-AUTO-2026",
+      "filename": "procedure_gestion_sinistres_auto.docx",
+      "title": "Procedure interne de gestion des sinistres auto",
+      "version": "1.0",
+      "coverage_code": "ALL",
+      "allowed_groups": ["gestionnaires_auto", "superviseurs_auto"],
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31"
+    },
+    {
+      "document_id": "DOC-CONTROLE-SENSIBLE-2026",
+      "filename": "note_controle_sinistres_sensibles.docx",
+      "title": "Note de supervision - dossiers sensibles",
+      "version": "1.0",
+      "coverage_code": "ALL",
+      "allowed_groups": ["superviseurs_auto"],
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31"
+    }
+  ]
+}

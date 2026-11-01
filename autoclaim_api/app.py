@@ -10,18 +10,22 @@ import os
 from time import perf_counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from autoclaim_agent.retrieval import BigQueryClauseRetriever
+from autoclaim_agent.repository import list_claims
+from autoclaim_agent.documents import accessible_claim, list_documents, get_document
 from autoclaim_agent.security import VerifiedPrincipal
 from autoclaim_agent.tools import create_tools
 
 from .adk_runtime import answer_with_adk
+from .citation_audit import audit_chat_answer
 from .iap_auth import AuthenticatedUser, InvalidIdentity, verify_iap_assertion
-from .observability import log_coverage_review, log_http, log_llm_call
+from .observability import log_coverage_review, log_http, log_llm_call, log_citation_audit
 from .roles import resolve_groups
 
 LOG = logging.getLogger("autoclaim.api")
@@ -31,6 +35,20 @@ LOG = logging.getLogger("autoclaim.api")
 class RequestContext:
     identity: AuthenticatedUser
     principal: VerifiedPrincipal
+
+
+class ChatTurn(BaseModel):
+    """An untrusted browser-held turn: cannot carry claims or ACL roles."""
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1000)
+
+
+class ChatRequest(BaseModel):
+    """Stateless multi-turn context; authorization is rechecked on EVERY turn."""
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(min_length=3, max_length=1200)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=6)
 
 
 class AskRequest(BaseModel):
@@ -116,7 +134,23 @@ def build_app(
     @application.get("/", response_class=HTMLResponse)
     def home():
         from pathlib import Path
-        return (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+        return (Path(__file__).parent / "portal.html").read_text(encoding="utf-8")
+
+    @application.get("/assets/portal.css")
+    def portal_styles():
+        from pathlib import Path
+        return FileResponse(
+            Path(__file__).parent / "portal.css", media_type="text/css",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    @application.get("/assets/portal.js")
+    def portal_script():
+        from pathlib import Path
+        return FileResponse(
+            Path(__file__).parent / "portal.js", media_type="text/javascript",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
 
     @application.get("/api/me")
     def me(context: RequestContext = Depends(require_context)):
@@ -126,6 +160,72 @@ def build_app(
             "groups": sorted(context.principal.groups),
             "source": "verified_iap_jwt",
         }
+
+    @application.get("/api/claims")
+    def claims(context: RequestContext = Depends(require_context)):
+        """Never disclose a claim without an intersection with verified roles."""
+        result = []
+        for claim in list_claims():
+            if not context.principal.groups.intersection(claim["authorized_groups"]):
+                continue
+            result.append({
+                "claim_id": claim["claim_id"],
+                "policy_id": claim["policy_id"],
+                "event_date": claim["event_date"],
+                "coverage_code": claim["coverage_code"],
+                "damage_eur": claim["damage_eur"],
+                "description": claim["description"],
+                "needs_attention": bool(claim.get("flags")),
+            })
+        return {"claims": result, "total": len(result)}
+
+    @application.get("/api/claims/{claim_id}")
+    def claim_summary(claim_id: str, context: RequestContext = Depends(require_context)):
+        claim = accessible_claim(claim_id, context.principal)
+        if claim is None:
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        # Explicit allowlist: never expose underlying repository ACL metadata.
+        return {
+            "claim_id": claim["claim_id"],
+            "policy_id": claim["policy_id"],
+            "event_date": claim["event_date"],
+            "coverage_code": claim["coverage_code"],
+            "description": claim["description"],
+            "damage_eur": claim["damage_eur"],
+            "received_documents": claim.get("received_documents", []),
+            "needs_attention": bool(claim.get("flags")),
+            "human_validation_required": True,
+        }
+
+    @application.get("/api/claims/{claim_id}/documents")
+    def claim_documents(claim_id: str, context: RequestContext = Depends(require_context)):
+        claim = accessible_claim(claim_id, context.principal)
+        if claim is None:
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        return {"documents": list_documents(claim, context.principal)}
+
+    @application.get("/api/claims/{claim_id}/documents/{document_id}")
+    def read_document(
+        claim_id: str, document_id: str, context: RequestContext = Depends(require_context)
+    ):
+        """A real PDF/DOCX, served only after IAP + claim + doc ACL checks."""
+        claim = accessible_claim(claim_id, context.principal)
+        if claim is None:
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        item = get_document(claim, context.principal, document_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Document indisponible")
+        is_pdf = item["path"].suffix.lower() == ".pdf"
+        return FileResponse(
+            item["path"],
+            media_type=(
+                "application/pdf" if is_pdf
+                else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+            filename=item["filename"],
+            content_disposition_type="inline" if is_pdf else "attachment",
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
     @application.get("/api/claims/{claim_id}/review")
     def review(claim_id: str, context: RequestContext = Depends(require_context)):
@@ -209,6 +309,83 @@ def build_app(
             "source_refs": preflight.get("source_refs", []),
             "human_validation_required": True,
             "disclaimer": "Simulation fictive ; validation humaine obligatoire.",
+        }
+
+    @application.post("/api/claims/{claim_id}/chat")
+    async def chat(
+        claim_id: str,
+        body: ChatRequest,
+        context: RequestContext = Depends(require_context),
+    ):
+        """Conversational entry point, grounded in backend-verified evidence.
+
+        Chat history is user-controllable and treated as untrusted text. It can
+        improve continuity but NEVER provides authorization or source facts.
+        Each call rechecks IAP, claim ACL, dated BigQuery evidence, and document ACL.
+        """
+        claim = accessible_claim(claim_id, context.principal)
+        if claim is None:
+            raise HTTPException(status_code=404, detail="Dossier indisponible")
+        try:
+            retriever = retriever_factory()
+            review_tool, search_tool = create_tools(context.principal, retriever)
+            preflight = review_tool(claim["claim_id"])
+            if preflight.get("status") in {"EVIDENCE_UNAVAILABLE", "EVIDENCE_INCOMPLETE"}:
+                raise HTTPException(status_code=503, detail="Preuves documentaires indisponibles")
+            matches = search_tool(claim["claim_id"], body.question[:300])
+            if matches.get("status") == "EVIDENCE_UNAVAILABLE":
+                raise HTTPException(status_code=503, detail="Recherche documentaire indisponible")
+        except HTTPException:
+            raise
+        except Exception:
+            LOG.exception("Erreur technique avant conversation")
+            raise HTTPException(status_code=503, detail="Recherche indisponible")
+
+        # The LLM is never the authority for the list of cited sources.
+        # The audit after generation will reconcile each cited ID with the
+        # preflight and/or an exact, ACL-filtered BigQuery lookup.
+
+        started_llm = perf_counter()
+        try:
+            answer = await answer_with_adk(
+                context.principal,
+                retriever,
+                claim["claim_id"],
+                body.question,
+                history=[turn.model_dump() for turn in body.history],
+            )
+        except Exception:
+            log_llm_call(False, (perf_counter() - started_llm) * 1000)
+            LOG.exception("Erreur d'execution de l'agent conversationnel")
+            raise HTTPException(status_code=503, detail="Agent indisponible")
+        log_llm_call(True, (perf_counter() - started_llm) * 1000)
+
+        try:
+            audit = audit_chat_answer(
+                answer,
+                claim=claim,
+                principal=context.principal,
+                retriever=retriever,
+                preflight=preflight,
+                matches=matches,
+            )
+        except Exception:
+            # Fail closed: an unavailable evidence lookup must never allow a
+            # fabricated or unauthorized reference through to the browser.
+            LOG.exception("Echec de reconciliation des citations")
+            log_citation_audit("LOOKUP_UNAVAILABLE", 0)
+            raise HTTPException(status_code=503, detail="Verification des sources indisponible")
+
+        log_citation_audit(audit.status, len(audit.sources))
+        return {
+            "claim_id": claim["claim_id"],
+            "answer": audit.answer,
+            "status": preflight.get("status"),
+            "sources": audit.sources,
+            "grounding_status": audit.status,
+            "human_validation_required": True,
+            "disclaimer": "Simulation fictive. Validation humaine obligatoire.",
+            "conversation_mode": "browser_context_no_server_storage",
         }
 
     return application

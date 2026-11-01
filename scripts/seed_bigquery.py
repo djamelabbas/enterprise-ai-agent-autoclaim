@@ -14,7 +14,7 @@ from autoclaim_agent.retrieval import BigQueryClauseRetriever, normalize
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def build_rows() -> list[dict]:
+def build_rows(*, include_documents: bool = False) -> list[dict]:
     """Preparer une ligne par clause, en preservant les dates et les ACL."""
     rows = []
     source = ROOT / "contracts" / "clauses.jsonl"
@@ -28,6 +28,20 @@ def build_rows() -> list[dict]:
             f"{clause['title']} {clause['coverage_code']} {clause['text']}"
         )
         rows.append(clause)
+    if include_documents:
+        # Never index unapproved uploads. Rows originate from the approved
+        # offline extraction job and retain ACL and effective dates.
+        index_path = ROOT / "contracts" / "ingested_documents.jsonl"
+        if not index_path.is_file():
+            raise FileNotFoundError("Generate the document index before seeding BigQuery")
+        for line in index_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                doc = json.loads(line)
+                if doc["clause_type"] != "document_excerpt":
+                    raise ValueError("Unexpected document index row")
+                rows.append(doc)
+        if len({row["citation"] for row in rows}) != len(rows):
+            raise ValueError("Duplicate citations in dataset")
     if not rows:
         raise ValueError("Aucune clause a charger")
     return rows
@@ -38,12 +52,13 @@ def main() -> None:
     parser.add_argument("--project", required=True, help="Projet GCP de TEST (avec facturation)")
     parser.add_argument("--location", default="europe-west1")
     parser.add_argument("--execute", action="store_true", help="Autoriser le chargement facturable")
+    parser.add_argument("--include-documents", action="store_true", help="Inclure le corpus PDF/DOCX approuve")
     args = parser.parse_args()
 
     retriever = BigQueryClauseRetriever(args.project, location=args.location)
-    rows = build_rows()
+    rows = build_rows(include_documents=args.include_documents)
     print(f"Cible : {retriever.table_id} ({args.location})")
-    print(f"Clauses fictives : {len(rows)}")
+    print(f"Clauses et extraits documentaires fictifs : {len(rows)}")
     print("ATTENTION : cette commande remplace la table de demonstration cible.")
     if not args.execute:
         print("DRY RUN : ajouter --execute pour creer le dataset et charger les clauses.")

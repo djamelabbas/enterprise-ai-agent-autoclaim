@@ -6,6 +6,20 @@ Portfolio MVP built with **Google ADK + Gemini (Vertex AI), BigQuery, FastAPI, C
 
 > **Experimental demonstration only.** No real customer data. This application does **not** make binding coverage decisions, reject claims, determine legal forfeiture, or authorize payments.
 
+## V2 - AutoClaim 360 Enterprise Chat
+
+The demo now features a responsive fictional claims-management portal with a
+ChatGPT-like assistant panel, bounded browser-held conversation context,
+backend-authorized claim/document browsing, and actual **PDF/DOCX text
+extraction** into BigQuery lexical RAG. Three fictional documents (one PDF and
+two Word documents) are included, with document-level roles and versioned
+citations. The agent still runs on **Google ADK/Vertex AI and Cloud Run**;
+this is **not** an agent published in Google Gemini Enterprise.
+
+See [`docs/LOT7_AUTOCLAIM_360.md`](docs/LOT7_AUTOCLAIM_360.md) for PowerShell
+installation, document ingestion, BigQuery reseeding and deployment; see
+[`docs/DEMO_AUTOCLAIM_360.md`](docs/DEMO_AUTOCLAIM_360.md) for the client demo.
+
 ## Demonstrated capabilities
 
 - **Agent orchestration:** Google ADK tools bound to a backend-verified principal; the LLM cannot choose its own access groups.
@@ -87,18 +101,18 @@ The live demo requires authorized GCP BigQuery access; `--execute` additionally 
 
 ## Evaluation and limitations
 
-- Fictional corpus: **2 policies, 1 endorsement, 8 claim scenarios, 7 clauses**.
+- Fictional corpus: **2 policies, 1 endorsement, 8 claim scenarios, 7 general-condition clauses + 4 extracted PDF/DOCX passages**.
 - Business rules and example amounts are fabricated for the demonstration; no legal or regulatory guarantee is inferred from them.
-- RAG currently uses lexical search / exact citations, **not** semantic vector retrieval or OCR of signed PDFs.
+- RAG uses lexical search / exact citations. It now extracts **text from demo PDF/DOCX** into chunks, but does **not** support OCR, images, embeddings, semantic search or parsing signed scanned documents.
 - IAP authenticates real Google users. Business roles use an allowlist of **verified email addresses**, configured server-side; Cloud Identity group synchronization is not implemented.
 - Sample contracts and claims are local JSON files. Replacing them with an audited private system of record is required before production use.
-- Stateless HTTP deployment supports horizontal scaling, but **no load test, shared multi-turn session store, enterprise SLA or 400-user capacity test has been performed**.
+- The V2 supports bounded browser-supplied multi-turn history, which is treated as untrusted text and is never used for authorization. **No shared or persistent ADK session store, load test, enterprise SLA or 400-user capacity test has been performed**.
 - Operational telemetry intentionally excludes personally identifiable data, claim IDs, document contents, prompts and model responses. Token-cost tracking and distributed tracing are future work.
 
 ## Security and publication
 
 Never commit `.env`, credentials, customer or claim information from actual operations, production documents, IAP JWTs, or real user emails. No real Cloud Identity account names should be hard-coded in this public repository. See the [runbook](docs/RUNBOOK.md) for scoped IAM assignments and deployment instructions.
 
-## Suggested V2
+## Suggested next steps
 
-Semantic/hybrid RAG, OCR and layout-aware parsing of signed contract documents, source-document reconciliation, enterprise identity group resolution, shared ADK sessions, human-review workflows, evaluation with a curated golden dataset, load testing and cost monitoring.
+Semantic/hybrid RAG, image/OCR and layout-aware parsing, source-document reconciliation, enterprise identity group resolution, managed ADK sessions, publishing in Gemini Enterprise where available, human-review workflows, golden-set evaluation, load testing and cost monitoring.

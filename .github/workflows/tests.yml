@@ -27,5 +27,5 @@ jobs:
       - name: Install dependencies from lockfile
         run: uv sync --locked
 
-      - name: Run 82 offline tests
+      - name: Run AutoClaim 360 offline tests
         run: uv run --no-sync python -m pytest -q

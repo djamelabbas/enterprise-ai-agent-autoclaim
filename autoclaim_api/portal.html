@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>AutoClaim 360 | AutoClaim Coverage Copilot</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+  <script src="/assets/portal.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="Navigation">
+    <div class="brand"><span class="brand-mark">A</span><div><strong>AutoClaim <i>360</i></strong><small>ENTERPRISE PLATFORM</small></div></div>
+    <div class="nav-kicker">ESPACE DE TRAVAIL</div>
+    <a class="nav active" href="#dossiers"><span>&#9638;</span><b>Vue d'ensemble</b></a>
+    <a class="nav" href="#dossiers"><span>&#9776;</span><b>Dossiers sinistres</b></a>
+    <a class="nav" href="#documents"><span>&#9783;</span><b>Base documentaire</b></a>
+    <div class="nav-kicker">INTELLIGENCE ARTIFICIELLE</div>
+    <button class="nav" id="sidebar-chat" type="button"><span>&#10022;</span><b>Copilote IA</b></button>
+    <div class="sidebar-footer"><span class="online-dot"></span> Environnement de d&eacute;monstration<br><small>Google Cloud &middot; IAP &middot; Gemini<br>Donn&eacute;es enti&egrave;rement fictives</small></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="breadcrumbs">Espace assurance &nbsp;/&nbsp; <strong>Gestion des sinistres</strong></div>
+      <div class="user-area"><span class="secure">&#9679; Acc&egrave;s s&eacute;curis&eacute; IAP</span><span class="avatar" id="avatar">?</span><div class="who"><strong id="account">Authentification...</strong><small id="role">Chargement du r&ocirc;le</small></div></div>
+    </header>
+    <main class="content">
+      <div class="page-title"><div><div class="eyebrow">PILOTAGE DES SINISTRES / ESPACE GESTIONNAIRE</div><h1>Bienvenue sur AutoClaim 360</h1><p>Consultez vos dossiers, explorez les sources contractuelles et questionnez votre copilote IA. Chaque conclusion reste soumise &agrave; une validation humaine.</p></div><button class="btn primary" type="button" id="open-chat">&#10022; &nbsp;Ouvrir le copilote</button></div>
+      <section class="metrics" aria-label="Indicateurs">
+        <div class="metric"><small>Dossiers accessibles</small><strong id="count-claims">--</strong><span>Selon vos habilitations</span></div>
+        <div class="metric"><small>Documents consultables</small><strong id="count-docs">--</strong><span>Corpus fictif PDF et Word</span></div>
+        <div class="metric"><small>Mode de traitement</small><strong class="metric-word">Assist&eacute; par IA</strong><span>D&eacute;cision finale humaine</span></div>
+      </section>
+      <div class="dashboard" id="dossiers">
+        <section class="card claims"><header class="card-head"><div><h2>Portefeuille de sinistres</h2><small>Dossiers visibles selon votre profil</small></div><span class="tag gray" id="list-total">--</span></header>
+          <form class="search" id="claim-form"><input id="claim-input" placeholder="Ouvrir SIN-1001 ou rechercher..." aria-label="Identifiant sinistre" maxlength="30" autocomplete="off"><button class="btn small" type="submit">Ouvrir</button></form>
+          <div class="case-list" id="case-list" aria-live="polite">Chargement...</div>
+        </section>
+        <div class="right-col">
+          <section class="card"><header class="card-head"><h2>Fiche du dossier</h2><span class="tag gray" id="claim-status">En attente</span></header>
+            <div class="card-body"><div class="case-heading"><strong id="selected-id">S&eacute;lectionnez un dossier</strong><button type="button" class="btn small" id="analyze" disabled>Pr&eacute;analyser</button></div>
+              <div class="details"><div><small>Contrat</small><strong id="detail-policy">--</strong></div><div><small>Garantie</small><strong id="detail-coverage">--</strong></div><div><small>Date du sinistre</small><strong id="detail-date">--</strong></div><div><small>Montant des dommages</small><strong id="detail-amount">--</strong></div></div>
+              <div class="info-note" id="detail-description">S&eacute;lectionnez un sinistre pour consulter les donn&eacute;es du SI fictif.</div><div id="review-result" class="review-result" aria-live="polite"></div>
+              <button class="btn primary small" type="button" id="ask-context" disabled>&#10022; &nbsp;Questionner l'IA sur ce dossier</button></div>
+          </section>
+          <section class="card docs" id="documents"><header class="card-head"><div><h2>Biblioth&egrave;que documentaire</h2><small>Documents autoris&eacute;s pour ce dossier</small></div><span class="tag gray">PDF / DOCX</span></header><div class="document-list" id="document-list">S&eacute;lectionnez un dossier.</div></section>
+        </div>
+      </div>
+      <div class="disclaimer"><span>&#9432;</span><div><strong>D&eacute;monstration fictive &mdash; environnement non contractuel.</strong> Conditions g&eacute;n&eacute;rales dans BigQuery, param&egrave;tres de garanties issus d'un SI simul&eacute;, PDF et Word de d&eacute;monstration. L'agent ne valide aucune indemnit&eacute; et n'ordonne aucun paiement.</div></div>
+    </main>
+  </div>
+</div>
+<button class="chat-launcher" type="button" id="chat-launch" aria-controls="chat-panel" aria-expanded="false"><span>&#10022;</span> Assistant AutoClaim &nbsp;&#8599;</button>
+<section class="chat-panel" id="chat-panel" role="dialog" aria-label="Chat AutoClaim" aria-modal="false">
+  <header class="chat-head"><span class="chat-logo">&#10022;</span><div><strong>Assistant AutoClaim</strong><small>Gemini / ADK &middot; RAG &amp; SI fictif</small></div><button type="button" id="chat-expand" aria-label="Agrandir le chat">&#9633;</button><button type="button" id="chat-close" aria-label="Fermer le chat">&times;</button></header>
+  <div class="chat-context"><span>Dossier actif : <strong id="chat-claim">Aucun dossier</strong></span><button type="button" id="chat-clear">Nouvelle conversation</button></div>
+  <div class="messages" role="log" aria-live="polite" id="messages"></div>
+  <div class="suggestions" id="suggestions"><button type="button" data-prompt="Ce sinistre est-il couvert en principe ? Cite les clauses.">Couverture</button><button type="button" data-prompt="Quels justificatifs faut-il verifier ? Cite les sources PDF et Word.">Justificatifs</button><button type="button" data-prompt="Explique la franchise et le montant indicatif.">Franchise</button></div>
+  <form class="composer" id="chat-form"><div class="compose-wrap"><textarea id="chat-input" rows="2" maxlength="1200" aria-label="Question au copilote" placeholder="Votre question sur ce dossier..."></textarea><button type="submit" id="chat-send" aria-label="Envoyer">&#10148;</button></div><div class="compose-help">Entr&eacute;e : envoyer &middot; Maj+Entr&eacute;e : retour &agrave; la ligne<br>IA supervis&eacute;e &middot; Historique local non persistant</div></form>
+</section>
+<div id="toast" role="status" class="toast"></div>
+</body>
+</html>
